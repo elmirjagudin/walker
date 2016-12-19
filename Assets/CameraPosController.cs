@@ -3,7 +3,8 @@ using System.Collections;
 
 public class CameraPosController : MonoBehaviour
 {
-    float panTiltSpeed = 64f;
+    float panTiltSpeed = 149f;
+    float moveSpeed = 16f;
 
     float yaw = 0.0f;
     float pitch = 0.0f;
@@ -28,8 +29,19 @@ public class CameraPosController : MonoBehaviour
         transform.eulerAngles = new Vector3(pitch, yaw, 0.0f);
     }
 
+    void Move()
+    {
+        var moveDirection = new Vector3(Input.GetAxis("Strafe"), 0, Input.GetAxis("Forward"));
+        moveDirection = transform.TransformDirection(moveDirection);
+        moveDirection = Vector3.ProjectOnPlane (moveDirection, Vector3.up);
+
+        transform.position += moveDirection * moveSpeed * Time.deltaTime;
+
+    }
+
 	void Update()
     {
         YawPitch();
+        Move();
 	}
 }
