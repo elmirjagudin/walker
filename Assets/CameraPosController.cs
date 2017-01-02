@@ -10,6 +10,7 @@ public class CameraPosController : MonoBehaviour
     float yaw = 0.0f;
     float pitch = 0.0f;
 
+    public GameObject collisionMarker;
 
     void YawPitch()
     {
@@ -52,5 +53,20 @@ public class CameraPosController : MonoBehaviour
         YawPitch();
         Move();
         Level();
+
+        UpdateCollisionMarker();
+	}
+
+    void UpdateCollisionMarker()
+	{
+        RaycastHit hit;
+        if (!Physics.Raycast(GetComponent<Transform>().position, Vector3.down, out hit))
+        {
+			collisionMarker.SetActive(false);
+			return;
+        }
+
+		collisionMarker.SetActive(true);
+		collisionMarker.transform.position = hit.point;
 	}
 }
