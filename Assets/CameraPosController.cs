@@ -5,6 +5,7 @@ public class CameraPosController : MonoBehaviour
 {
     float panTiltSpeed = 149f;
     float moveSpeed = 16f;
+    float levelSpeed = 8f;
 
     float yaw = 0.0f;
     float pitch = 0.0f;
@@ -39,9 +40,17 @@ public class CameraPosController : MonoBehaviour
 
     }
 
+    void Level()
+    {
+        var ydelta = levelSpeed * Time.deltaTime * (Input.GetAxis("Up") - Input.GetAxis("Down"));
+        transform.position += new Vector3(0, ydelta, 0);
+
+    }
+
 	void Update()
     {
         YawPitch();
         Move();
+        Level();
 	}
 }
