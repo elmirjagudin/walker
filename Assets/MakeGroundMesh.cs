@@ -76,8 +76,16 @@ public class MakeGroundMesh : MonoBehaviour
 		}
 	}
 
+	void makeHeights()
+	{
+		heights = new float[253, 253];
+
+	}
+
 	void Start ()
 	{
+		makeHeights();
+
 		Mesh mesh = new Mesh();
         GetComponent<MeshFilter>().mesh = mesh;
 		mesh.vertices = getVertices();
