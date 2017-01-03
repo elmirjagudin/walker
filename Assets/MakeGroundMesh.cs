@@ -91,6 +91,8 @@ public class MakeGroundMesh : MonoBehaviour
 		mesh.vertices = getVertices();
 		mesh.triangles = getTriangles();
 
+		GetComponent<Renderer>().material.shader = Shader.Find("invisible");
+
 		//dumpMesh(mesh);
 	}
 
