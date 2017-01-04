@@ -21,7 +21,7 @@ public class DynamicTransparancy : MonoBehaviour
     private static int HEIGHT = 1024;
     byte[] data = new byte[WIDTH * HEIGHT];
 
-    BayerConverter converter;
+    BayerConverter converter = null;
 
     void LoadData()
     {
@@ -33,23 +33,37 @@ public class DynamicTransparancy : MonoBehaviour
 
     void Start()
     {
-        converter = new BayerConverter(WIDTH, HEIGHT);
-
         mat = new Material(Shader.Find("DynamicTransparancy"));
-        mat.SetTexture("_BackgroundTex", converter.texture);
 
-        LoadData();
+        try
+        {
+            converter = new BayerConverter(WIDTH, HEIGHT);
+            mat.SetTexture("_BackgroundTex", converter.texture);
+
+            LoadData();
+        }
+        catch (UnityException e)
+        {
+            print("failed to setup bayer shader: "  + e +
+                  " disabling background image generation");
+        }
     }
 
     void OnRenderImage(RenderTexture src, RenderTexture dest)
     {
-        converter.Draw(data, strength, zoom, scale_x, scale_y, translate_x, translate_y, rotation);
+        if (converter != null)
+        {
+            converter.Draw(data, strength, zoom, scale_x, scale_y, translate_x, translate_y, rotation);
+        }
         mat.SetFloat("_Opacity", OpacityGuage.opacity);
         Graphics.Blit(src, dest, mat);
     }
 
     void OnDestroy()
     {
-        converter.Cleanup();
+        if (converter != null)
+        {
+            converter.Cleanup();
+        }
     }
 }
