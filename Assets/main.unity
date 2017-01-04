@@ -406,9 +406,17 @@ MonoBehaviour:
   m_GameObject: {fileID: 1536837999}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: b04152472fafb42c5929e008d872d767, type: 3}
+  m_Script: {fileID: 11500000, guid: 55a28589f2faa4f11b0e6f28b88e859a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  imageFile: 
+  strength: 2.7
+  zoom: 2.23
+  scale_x: 1
+  scale_y: 1
+  translate_x: 0
+  translate_y: 0
+  rotation: 0
 --- !u!1 &1667331867
 GameObject:
   m_ObjectHideFlags: 0
