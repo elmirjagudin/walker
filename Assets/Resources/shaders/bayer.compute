@@ -1,0 +1,196 @@
+﻿// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel bayer1
+#pragma kernel bayer2
+
+cbuffer image_size
+{
+	float width;
+	float height;
+}
+
+cbuffer settings {
+    float strength;
+    float zoom;
+    float scale_x;
+    float scale_y;
+	float rot_cos;
+	float rot_sin;
+	float translate_x;
+	float translate_y;
+}
+
+#define HALF_WIDTH  (width/2)
+#define HALF_HEIGHT  (height/2)
+
+// input
+StructuredBuffer<uint> raw;
+
+// output
+RWTexture2D<float4> Result;
+
+float GetPixel(uint x, uint y)
+{
+	uint pos = y * (uint)width + x;
+
+	uint array_pos = pos / 4;
+	uint byte_offset = pos & 0x3;
+
+	uint val = raw[array_pos];
+
+	uint mask = 0xff;
+	mask = mask << (byte_offset * 8);
+
+	uint masked_val = val & mask;
+	uint res_val = masked_val >> (byte_offset * 8);
+
+	return ((float)res_val / 255);
+}
+
+float3 Rectify(float3 source)
+{
+	float correctionRadius = sqrt(HALF_WIDTH * HALF_HEIGHT * 2) / strength;
+	float newx = source.x;
+	float newy = source.y;
+	float distance = sqrt(newx*newx + newy*newy);
+	float r = distance / correctionRadius;
+
+	float theta = 1;
+	if (r != 0)
+	{
+		theta = atan(r) / r;
+	}
+
+	source.x = theta * newx * zoom;
+	source.y = theta * newy * zoom;
+
+	return source;
+}
+
+float3 Scale(float3 source)
+{
+	float3x3 scale = {
+		scale_x, 0, 0,
+		0, scale_y, 0,
+		0, 0, 1
+	};
+
+	return mul(scale, source);
+}
+
+float3 Rotate(float3 source)
+{
+	float3x3 rot = {
+		rot_cos, -rot_sin, 0,
+		rot_sin, rot_cos, 0,
+		0, 0, 1
+	};
+
+	return mul(rot, source);
+}
+
+float3 Translate(float3 source)
+{
+	float3x3 rot = {
+		1, 0, translate_x,
+		0, 1, translate_y,
+		0, 0, 1
+	};
+
+	return mul(rot, source);
+}
+
+uint2 RemapPos(uint3 pos)
+{
+	float3 source = float3((float)pos.x, (float)pos.y, 1);
+	source.x = source.x - HALF_WIDTH;
+	source.y = source.y - HALF_HEIGHT;
+
+	source = Rectify(Translate(Rotate(Scale(source))));
+
+	source.x = source.x + HALF_WIDTH;
+	source.y = source.y + HALF_HEIGHT;
+
+
+	if (source.x < 0.0 || source.x > width || source.y < 0.0 || source.y > height)
+	{
+		source.x = 0.0f;
+		source.y = 0.0f;
+	}
+
+	return uint2((uint)source.x, (uint)source.y);
+}
+
+float4 GetColor(uint3 orig_pos)
+{
+	float4 res;
+
+	uint2 pos = RemapPos(orig_pos);
+
+	if (pos.y % 2 == 0)
+	{
+		/* RGRGRG line */
+		if (pos.x % 2 == 0)
+		{
+			/* red pixel */
+			res.r = GetPixel(pos.x, pos.y);
+			res.g = GetPixel(pos.x + 1, pos.y);
+			res.b = GetPixel(pos.x + 1, pos.y + 1);
+		}
+		else
+		{
+			/* green pixel */
+			res.r = GetPixel(pos.x + 1, pos.y);
+			res.g = GetPixel(pos.x, pos.y);
+			res.b = GetPixel(pos.x, pos.y + 1);
+		}
+	}
+	else
+	{
+		/* GBGBGB line */
+		if (pos.x % 2 == 0)
+		{
+			/* green pixel */
+			res.r = GetPixel(pos.x, pos.y + 1);
+			res.g = GetPixel(pos.x, pos.y);
+			res.b = GetPixel(pos.x + 1, pos.y);
+		}
+		else
+		{
+			/* blue */
+			res.r = GetPixel(pos.x + 1, pos.y + 1);
+			res.g = GetPixel(pos.x + 1, pos.y);
+			res.b = GetPixel(pos.x, pos.y);
+		}
+	}
+
+	res.a = 1.0f;
+
+	return res;
+}
+
+
+void convert(uint3 id : SV_DispatchThreadID)
+{
+	Result[id.xy] = GetColor(id);
+}
+
+//
+// This is a hack that allows use to convert two images to two different
+// textures, by using different kernels, as buffer and texture settings
+// are per kernel
+//
+
+#define TX 16
+#define TY 16
+
+[numthreads(TX, TY, 1)]
+void bayer1(uint3 id : SV_DispatchThreadID)
+{
+	convert(id);
+}
+
+[numthreads(TX, TY, 1)]
+void bayer2(uint3 id : SV_DispatchThreadID)
+{
+	convert(id);
+}
