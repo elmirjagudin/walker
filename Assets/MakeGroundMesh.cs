@@ -3,38 +3,39 @@ using System.Collections;
 
 public class MakeGroundMesh : MonoBehaviour
 {
-	float[,] heights = new float[,] {
-		{ 0, 0, 0, 0, 0, },
-		{ 0, 0, 1, 1.2f, 0, },
-		{ 0, 0, 0, 0, 0, },
-		{ 0, 0, 0, 0, 0, },
-		{ 0, 0, 0, 0, 0, },
-		{ 0, 0, 0, 0, -.4f, },
-	};
+	GPS gps;
+	int gridHeight;
+	int gridWidth;
 
-	Vector3[] getVertices()
+	Vector3[] getVertices(HeightsGrid heightsGrid)
 	{
-		int h = heights.GetLength(0);
-		int w = heights.GetLength(1);
+		Vector3 topLeft = heightsGrid.topLeft;
+		float[,] heights = heightsGrid.levels;
+		float zSpacing = heightsGrid.northSpacing;
+		float xSpacing = heightsGrid.eastSpacing;
 
-		Vector3[] v = new Vector3[w*h];
+		Vector3[] v = new Vector3[gridWidth*gridHeight];
 
-		for (int z = 0; z < h; z += 1)
+		for (int z = 0; z < gridHeight; z += 1)
 		{
-			for (int x = 0; x < w; x += 1)
+			for (int x = 0; x < gridWidth; x += 1)
 			{
-				v[z*w + x] = new Vector3(
-					(float)x,
+				int i = z*gridWidth + x;
+
+				v[i] = new Vector3(
+					((float)x * xSpacing),
 					heights[z, x],
-					(float)z);
+				    ((float)z * zSpacing));
+				v[i] += topLeft;
 			}
 		}
 
 		return v;
 	}
 
-	int[] getTriangles()
+	int[] getTriangles(HeightsGrid heightsGrid)
 	{
+		float[,] heights = heightsGrid.levels;
 
 		int h = heights.GetLength(0);
 		int w = heights.GetLength(1);
@@ -76,24 +77,40 @@ public class MakeGroundMesh : MonoBehaviour
 		}
 	}
 
-	void makeHeights()
-	{
-		heights = new float[253, 253];
-
-	}
-
 	void Start ()
 	{
-		makeHeights();
+		gps = Camera.main.GetComponent<GPS>();
+		HeightsGrid heightsGrid = gps.getHeightsGrid();
+        gridHeight = heightsGrid.levels.GetLength(0);
+		gridWidth = heightsGrid.levels.GetLength(1);
 
 		Mesh mesh = new Mesh();
         GetComponent<MeshFilter>().mesh = mesh;
-		mesh.vertices = getVertices();
-		mesh.triangles = getTriangles();
+
+
+		mesh.vertices = getVertices(heightsGrid);
+		mesh.triangles = getTriangles(heightsGrid);
 
 		GetComponent<Renderer>().material.shader = Shader.Find("invisible");
 
 		//dumpMesh(mesh);
 	}
 
+	void Update()
+	{
+		var updates = gps.getHeightsUpdates();
+		if (updates == null)
+		{
+			return;
+		}
+
+		Mesh mesh = GetComponent<MeshFilter>().mesh;
+		Vector3[] vertices = mesh.vertices;
+
+		foreach (var heightUpdate in updates)
+		{
+			vertices[heightUpdate.z*gridWidth + heightUpdate.x].y = heightUpdate.level;
+		}
+		mesh.vertices = vertices;
+	}
 }
