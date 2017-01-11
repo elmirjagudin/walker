@@ -1,30 +1,33 @@
 ﻿using UnityEngine;
+using System;
 using System.Collections;
 
 public class MakeGroundMesh : MonoBehaviour
 {
+	const int MESH_SIZE = 3;
+
 	GPS gps;
 	int gridHeight;
 	int gridWidth;
 
-	Vector3[] getVertices(HeightsGrid heightsGrid)
+	Vector3[] getVertices(HeightsGrid heightsGrid, Vector3 topLeft, int startX, int startZ)
 	{
-		Vector3 topLeft = heightsGrid.topLeft;
 		float[,] heights = heightsGrid.levels;
 		float zSpacing = heightsGrid.northSpacing;
 		float xSpacing = heightsGrid.eastSpacing;
 
-		Vector3[] v = new Vector3[gridWidth*gridHeight];
 
-		for (int z = 0; z < gridHeight; z += 1)
+		Vector3[] v = new Vector3[(MESH_SIZE + 1) * (MESH_SIZE + 1)];
+
+		for (int z = 0; z <= MESH_SIZE; z += 1)
 		{
-			for (int x = 0; x < gridWidth; x += 1)
+			for (int x = 0; x <= MESH_SIZE; x += 1)
 			{
-				int i = z*gridWidth + x;
+				int i = z*(MESH_SIZE+1) + x;
 
 				v[i] = new Vector3(
 					((float)x * xSpacing),
-					heights[z, x],
+					heights[startX + x, startZ + z],
 				    ((float)z * zSpacing));
 				v[i] += topLeft;
 			}
@@ -33,22 +36,20 @@ public class MakeGroundMesh : MonoBehaviour
 		return v;
 	}
 
-	int[] getTriangles(HeightsGrid heightsGrid)
+	int[] getTriangles()
 	{
-		float[,] heights = heightsGrid.levels;
-
-		int h = heights.GetLength(0);
-		int w = heights.GetLength(1);
-
-		int[] t = new int[(h-1)*(w-1)*2*3];
+		int[] t = new int[MESH_SIZE*MESH_SIZE*2*3];
+		int w = MESH_SIZE + 1;
+		int h = MESH_SIZE + 1;
 
 		int cntr = 0;
-		for (int i = 0; i < w * (h-1); i += 1)
+		for (int i = 0; i < (w-1) * h ; i += 1)
 		{
-			if (i % w == 0)
+			if (i % w  == 0)
 			{
 				continue;
 			}
+
 			t[cntr] = i;
 			t[cntr+1] = i + w - 1;
 			t[cntr+2] = i + w;
@@ -63,7 +64,7 @@ public class MakeGroundMesh : MonoBehaviour
 		return t;
 	}
 
-	void dumpMesh(Mesh mesh)
+	void _dumpMesh(Mesh mesh)
 	{
 		Vector3[] v = mesh.vertices;
 		int[] t = mesh.triangles;
@@ -77,6 +78,45 @@ public class MakeGroundMesh : MonoBehaviour
 		}
 	}
 
+	void MakeMesh(HeightsGrid heightsGrid, Vector3 topLeft, int x, int z, int[] triangles)
+	{
+		var gobj = new GameObject(String.Format("Ground Mesh {0}x{1}", x, z));
+		var meshFilter = gobj.AddComponent<MeshFilter>();
+		var renderer = gobj.AddComponent<MeshRenderer>();
+		renderer.material.shader = Shader.Find("invisible");
+
+		Mesh mesh = new Mesh();
+		mesh.vertices = getVertices(heightsGrid, topLeft, x, z);
+		mesh.triangles = triangles;
+
+		meshFilter.mesh = mesh;
+
+		//_dumpMesh(mesh);
+	}
+
+	void MakeMeshes(HeightsGrid heightsGrid)
+	{
+		Vector3 topLeftOffset = new Vector3(0f, 0f, 0f);
+		float zSpacing = heightsGrid.northSpacing;
+		float xSpacing = heightsGrid.eastSpacing;
+
+		int[] triangles = getTriangles();
+
+		for (int z = 0; z < (gridHeight-MESH_SIZE); z += MESH_SIZE)
+		{
+			for (int x = 0; x < (gridWidth-MESH_SIZE); x += MESH_SIZE)
+			{
+				topLeftOffset.x = x * xSpacing;
+				topLeftOffset.z = z * zSpacing;
+
+				Vector3 topLeft = heightsGrid.topLeft + topLeftOffset;
+
+				MakeMesh(heightsGrid, topLeft, x, z, triangles);
+			}
+		}
+
+	}
+
 	void Start ()
 	{
 		gps = Camera.main.GetComponent<GPS>();
@@ -84,16 +124,7 @@ public class MakeGroundMesh : MonoBehaviour
         gridHeight = heightsGrid.levels.GetLength(0);
 		gridWidth = heightsGrid.levels.GetLength(1);
 
-		Mesh mesh = new Mesh();
-        GetComponent<MeshFilter>().mesh = mesh;
-
-
-		mesh.vertices = getVertices(heightsGrid);
-		mesh.triangles = getTriangles(heightsGrid);
-
-		GetComponent<Renderer>().material.shader = Shader.Find("invisible");
-
-		//dumpMesh(mesh);
+		MakeMeshes(heightsGrid);
 	}
 
 	void Update()

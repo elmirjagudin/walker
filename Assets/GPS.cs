@@ -35,11 +35,11 @@ public class GPS : MonoBehaviour
 		{
 			heightsGrid = new HeightsGrid();
 
-			heightsGrid.topLeft = new Vector3(-127f, -16f, -127f);
+			heightsGrid.topLeft = new Vector3(0f, 0f, 0f);
 			heightsGrid.northSpacing = 1f;
 			heightsGrid.eastSpacing = 1f;
 
-			heightsGrid.levels = new float[254, 254];
+			heightsGrid.levels = new float[16, 16];
 		}
 		return heightsGrid;
 	}
@@ -64,21 +64,19 @@ public class GPS : MonoBehaviour
 
 	void Update ()
 	{
-		if (heightsGrid == null)
-		{
-			print("grid not ready");
-			return;
-		}
+		// if (heightsGrid == null)
+		// {
+		// 	print("grid not ready");
+		// 	return;
+		// }
 
-		Vector3 gridCoord = gameObject.transform.position - heightsGrid.topLeft;
+		// Vector3 gridCoord = gameObject.transform.position - heightsGrid.topLeft;
 
-		if (heightsGrid.levels[(int)gridCoord.x, (int)gridCoord.z] < 10f)
-		{
-			heightsGrid.levels[(int)gridCoord.x, (int)gridCoord.z] += 1f;
-			addHeightUpdate((int)gridCoord.x, (int)gridCoord.z,
-			                heightsGrid.levels[(int)gridCoord.x, (int)gridCoord.z]);
-		}
-
-
+		// if (heightsGrid.levels[(int)gridCoord.x, (int)gridCoord.z] < 10f)
+		// {
+		// 	heightsGrid.levels[(int)gridCoord.x, (int)gridCoord.z] += 1f;
+		// 	addHeightUpdate((int)gridCoord.x, (int)gridCoord.z,
+		// 	                heightsGrid.levels[(int)gridCoord.x, (int)gridCoord.z]);
+		// }
 	}
 }
