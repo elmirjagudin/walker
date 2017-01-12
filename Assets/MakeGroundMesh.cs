@@ -1,14 +1,20 @@
 ﻿using UnityEngine;
 using System;
 using System.Collections;
+using System.Diagnostics;
 
 public class MakeGroundMesh : MonoBehaviour
 {
-	const int MESH_SIZE = 3;
+	const int MESH_SIZE = 32;
+	Mesh[,] meshes;
 
 	GPS gps;
-	int gridHeight;
-	int gridWidth;
+	HeightsGrid heightsGrid;
+
+	int getVertIndex(int x, int z)
+	{
+		return z*(MESH_SIZE+1) + x;
+	}
 
 	Vector3[] getVertices(HeightsGrid heightsGrid, Vector3 topLeft, int startX, int startZ)
 	{
@@ -16,14 +22,13 @@ public class MakeGroundMesh : MonoBehaviour
 		float zSpacing = heightsGrid.northSpacing;
 		float xSpacing = heightsGrid.eastSpacing;
 
-
 		Vector3[] v = new Vector3[(MESH_SIZE + 1) * (MESH_SIZE + 1)];
 
 		for (int z = 0; z <= MESH_SIZE; z += 1)
 		{
 			for (int x = 0; x <= MESH_SIZE; x += 1)
 			{
-				int i = z*(MESH_SIZE+1) + x;
+				int i = getVertIndex(x, z);
 
 				v[i] = new Vector3(
 					((float)x * xSpacing),
@@ -71,14 +76,14 @@ public class MakeGroundMesh : MonoBehaviour
 
 		for (int i = 0; i < t.Length; i += 3)
 		{
-			Debug.LogFormat("i {0} [{1} {2} {3}] {4} {5} {6}",
+			UnityEngine.Debug.LogFormat("i {0} [{1} {2} {3}] {4} {5} {6}",
 				i,
 				t[i], t[i+1], t[i+2],
 				v[t[i]], v[t[i+1]], v[t[i+2]]);
 		}
 	}
 
-	void MakeMesh(HeightsGrid heightsGrid, Vector3 topLeft, int x, int z, int[] triangles)
+	GameObject MakeMesh(HeightsGrid heightsGrid, Vector3 topLeft, int x, int z, int[] triangles)
 	{
 		var gobj = new GameObject(String.Format("Ground Mesh {0}x{1}", x, z));
 		var meshFilter = gobj.AddComponent<MeshFilter>();
@@ -92,6 +97,8 @@ public class MakeGroundMesh : MonoBehaviour
 		meshFilter.mesh = mesh;
 
 		//_dumpMesh(mesh);
+
+		return gobj;
 	}
 
 	void MakeMeshes(HeightsGrid heightsGrid)
@@ -100,48 +107,99 @@ public class MakeGroundMesh : MonoBehaviour
 		float zSpacing = heightsGrid.northSpacing;
 		float xSpacing = heightsGrid.eastSpacing;
 
+        int gridHeight = heightsGrid.levels.GetLength(1);
+		int gridWidth = heightsGrid.levels.GetLength(0);
+
+		int meshesW = gridWidth/MESH_SIZE;
+		int meshesH = gridHeight/MESH_SIZE;
+
+		meshes = new Mesh[meshesW, meshesH];
+
 		int[] triangles = getTriangles();
 
-		for (int z = 0; z < (gridHeight-MESH_SIZE); z += MESH_SIZE)
+		for (int z = 0; z < meshesH; z += 1)
 		{
-			for (int x = 0; x < (gridWidth-MESH_SIZE); x += MESH_SIZE)
+			for (int x = 0; x < meshesW; x += 1)
 			{
-				topLeftOffset.x = x * xSpacing;
-				topLeftOffset.z = z * zSpacing;
+				int startX = x * MESH_SIZE;
+				int startZ = z * MESH_SIZE;
+
+				topLeftOffset.x = startX * xSpacing;
+				topLeftOffset.z = startZ * zSpacing;
 
 				Vector3 topLeft = heightsGrid.topLeft + topLeftOffset;
 
-				MakeMesh(heightsGrid, topLeft, x, z, triangles);
+				var meshGameObj = MakeMesh(heightsGrid, topLeft, startX, startZ, triangles);
+				meshGameObj.transform.parent = gameObject.transform;
+
+				meshes[x, z] = meshGameObj.GetComponent<MeshFilter>().mesh;
 			}
 		}
-
 	}
 
-	void Start ()
+	void Start()
 	{
 		gps = Camera.main.GetComponent<GPS>();
-		HeightsGrid heightsGrid = gps.getHeightsGrid();
-        gridHeight = heightsGrid.levels.GetLength(0);
-		gridWidth = heightsGrid.levels.GetLength(1);
+		heightsGrid = gps.getHeightsGrid();
 
 		MakeMeshes(heightsGrid);
+	}
+
+	void UpdateMeshVertY(int meshX, int meshZ, int vertX, int vertZ, float newY)
+	{
+		Mesh mesh = meshes[meshX, meshZ];
+		Vector3[] vertices = mesh.vertices;
+
+		vertices[getVertIndex(vertX, vertZ)].y = newY;
+		mesh.vertices = vertices;
+	}
+
+	void UpdateHeight(HeightUpdate heightUpdate, float heightsOffset)
+	{
+		float newY = heightUpdate.level + heightsOffset;
+
+		int x = heightUpdate.x / MESH_SIZE;
+		int z = heightUpdate.z / MESH_SIZE;
+
+
+		int vertX = heightUpdate.x % MESH_SIZE;
+		int vertZ = heightUpdate.z % MESH_SIZE;
+
+		if (x < meshes.GetLength(0) && z < meshes.GetLength(1))
+		{
+		    UpdateMeshVertY(x, z, vertX, vertZ, newY);
+		}
+
+		/* take care of shared vertices */
+		if (vertX == 0 && x > 0 && z < meshes.GetLength(1))
+		{
+			UpdateMeshVertY(x - 1, z, MESH_SIZE, vertZ, newY);
+		}
+
+		if (vertZ == 0 && z > 0 && x < meshes.GetLength(0))
+		{
+			UpdateMeshVertY(x, z - 1, vertX, MESH_SIZE, newY);
+		}
+
+		if (vertX == 0 && vertZ == 0 && x > 0 && z > 0)
+		{
+			UpdateMeshVertY(x - 1, z - 1, MESH_SIZE, MESH_SIZE, newY);
+		}
 	}
 
 	void Update()
 	{
 		var updates = gps.getHeightsUpdates();
+		float heightsOffset = heightsGrid.topLeft.y;
+
 		if (updates == null)
 		{
 			return;
 		}
 
-		Mesh mesh = GetComponent<MeshFilter>().mesh;
-		Vector3[] vertices = mesh.vertices;
-
-		foreach (var heightUpdate in updates)
+		foreach (var update in updates)
 		{
-			vertices[heightUpdate.z*gridWidth + heightUpdate.x].y = heightUpdate.level;
+			UpdateHeight(update, heightsOffset);
 		}
-		mesh.vertices = vertices;
 	}
 }

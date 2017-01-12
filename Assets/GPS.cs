@@ -1,4 +1,5 @@
 ﻿using UnityEngine;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 
@@ -23,7 +24,6 @@ public class HeightUpdate
 	}
 }
 
-
 public class GPS : MonoBehaviour
 {
 	HeightsGrid heightsGrid = null;
@@ -35,11 +35,11 @@ public class GPS : MonoBehaviour
 		{
 			heightsGrid = new HeightsGrid();
 
-			heightsGrid.topLeft = new Vector3(0f, 0f, 0f);
+			heightsGrid.topLeft = new Vector3(-32*2f, -10f, -32*1.5f);
 			heightsGrid.northSpacing = 1f;
 			heightsGrid.eastSpacing = 1f;
 
-			heightsGrid.levels = new float[16, 16];
+			heightsGrid.levels = new float[32*4+1, 32*3+1];
 		}
 		return heightsGrid;
 	}
@@ -64,19 +64,18 @@ public class GPS : MonoBehaviour
 
 	void Update ()
 	{
-		// if (heightsGrid == null)
-		// {
-		// 	print("grid not ready");
-		// 	return;
-		// }
+		if (heightsGrid == null)
+		{
+			print("grid not ready");
+			return;
+		}
 
-		// Vector3 gridCoord = gameObject.transform.position - heightsGrid.topLeft;
-
-		// if (heightsGrid.levels[(int)gridCoord.x, (int)gridCoord.z] < 10f)
-		// {
-		// 	heightsGrid.levels[(int)gridCoord.x, (int)gridCoord.z] += 1f;
-		// 	addHeightUpdate((int)gridCoord.x, (int)gridCoord.z,
-		// 	                heightsGrid.levels[(int)gridCoord.x, (int)gridCoord.z]);
-		// }
+		/* use cameras current height to fake height updates */
+		Vector3 gridCoord = gameObject.transform.position - heightsGrid.topLeft;
+		heightsGrid.levels[(int)gridCoord.x, (int)gridCoord.z] = gridCoord.y;
+		addHeightUpdate((int)gridCoord.x,
+		                (int)gridCoord.z,
+						heightsGrid.levels[(int)gridCoord.x,
+						                   (int)gridCoord.z]);
 	}
 }
